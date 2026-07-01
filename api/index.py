@@ -2,12 +2,16 @@ from pathlib import Path
 
 from fastapi import FastAPI, Query, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from core.calculator import get_nasa_asset_url
 from core.compositor import generate_wallpaper
 
 app = FastAPI()
 
-INDEX_HTML = (Path(__file__).parent / "static" / "index.html").read_text()
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+INDEX_HTML = (STATIC_DIR / "index.html").read_text()
 
 
 @app.get("/", response_class=HTMLResponse)
