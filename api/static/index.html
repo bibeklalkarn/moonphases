@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moon Phase Wallpaper</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0a0a0a;
+    color: #e8e8e8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+  }
+  h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 4px; }
+  p.sub { color: #999; margin-top: 0; margin-bottom: 28px; font-size: 0.9rem; }
+  .layout { display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; max-width: 960px; width: 100%; }
+  .panel {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 20px;
+    width: 320px;
+  }
+  label { display: block; font-size: 0.8rem; color: #aaa; margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  select, input[type=number] {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0d0d0d;
+    border: 1px solid #333;
+    color: #eee;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    background: #e8e8e8;
+    color: #111;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:hover { background: #fff; }
+  .preview-wrap {
+    flex: 1;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #preview {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: 12px;
+    border: 1px solid #2a2a2a;
+    background: #000;
+  }
+  .link-box {
+    margin-top: 16px;
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    gap: 8px;
+  }
+  .link-box input {
+    flex: 1;
+    background: #0d0d0d;
+    border: 1px solid #333;
+    color: #9ecbff;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: ui-monospace, monospace;
+  }
+  .link-box button { width: auto; margin-top: 0; padding: 10px 16px; }
+  .hint { font-size: 0.75rem; color: #777; margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>Moon Phase Wallpaper</h1>
+  <p class="sub">Pick a device, preview the current-hour moon frame, copy the link into Shortcuts / Tasker.</p>
+
+  <div class="layout">
+    <div class="panel">
+      <label for="device">Device</label>
+      <select id="device"></select>
+
+      <div class="row">
+        <div>
+          <label for="w">Width</label>
+          <input type="number" id="w" min="1" max="4096">
+        </div>
+        <div>
+          <label for="h">Height</label>
+          <input type="number" id="h" min="1" max="4096">
+        </div>
+      </div>
+
+      <label for="orientation">Orientation</label>
+      <select id="orientation">
+        <option value="north">North up</option>
+        <option value="south">South up</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label for="top_safe">Top safe zone</label>
+          <input type="number" id="top_safe" min="0">
+        </div>
+        <div>
+          <label for="bottom_safe">Bottom safe zone</label>
+          <input type="number" id="bottom_safe" min="0">
+        </div>
+      </div>
+
+      <button id="refresh">Refresh Preview</button>
+    </div>
+
+    <div class="preview-wrap">
+      <img id="preview" alt="Moon wallpaper preview">
+      <div class="link-box">
+        <input id="link" type="text" readonly>
+        <button id="copy">Copy</button>
+      </div>
+      <p class="hint">Point iOS Shortcuts "Get Contents of URL" or a Tasker/MacroDroid HTTP GET at this link.</p>
+    </div>
+  </div>
+
+<script>
+  // Physical pixel resolutions are public device specs.
+  // Safe-zone pixels are estimated as a fraction of screen height
+  // (room for clock/widgets up top, dock/widgets at bottom) —
+  // adjust per device once you see how it looks on your lock screen.
+  const DEVICES = [
+    { name: "iPhone 15 Pro Max / 16 Pro Max", w: 1290, h: 2796 },
+    { name: "iPhone 15 Pro / 16 Pro",         w: 1179, h: 2556 },
+    { name: "iPhone 15 / 16",                 w: 1170, h: 2532 },
+    { name: "iPhone SE",                      w: 750,  h: 1334 },
+    { name: "Pixel 8 Pro",                    w: 1344, h: 2992 },
+    { name: "Pixel 8",                        w: 1080, h: 2400 },
+    { name: "Galaxy S24 Ultra",               w: 1440, h: 3120 },
+    { name: "Galaxy S24",                     w: 1080, h: 2340 },
+    { name: "Custom",                         w: 1179, h: 2556 },
+  ];
+
+  const TOP_FRACTION = 0.15;
+  const BOTTOM_FRACTION = 0.20;
+
+  const deviceSel = document.getElementById("device");
+  const wInput = document.getElementById("w");
+  const hInput = document.getElementById("h");
+  const orientationSel = document.getElementById("orientation");
+  const topInput = document.getElementById("top_safe");
+  const bottomInput = document.getElementById("bottom_safe");
+  const preview = document.getElementById("preview");
+  const linkInput = document.getElementById("link");
+
+  DEVICES.forEach((d, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = d.name;
+    deviceSel.appendChild(opt);
+  });
+
+  function applyDevice() {
+    const d = DEVICES[deviceSel.value];
+    wInput.value = d.w;
+    hInput.value = d.h;
+    topInput.value = Math.round(d.h * TOP_FRACTION);
+    bottomInput.value = Math.round(d.h * BOTTOM_FRACTION);
+  }
+
+  function buildUrl() {
+    const params = new URLSearchParams({
+      w: wInput.value,
+      h: hInput.value,
+      orientation: orientationSel.value,
+      top_safe: topInput.value,
+      bottom_safe: bottomInput.value,
+    });
+    return `${window.location.origin}/api/wallpaper?${params.toString()}`;
+  }
+
+  function refresh() {
+    const url = buildUrl();
+    linkInput.value = url;
+    preview.src = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+  }
+
+  deviceSel.addEventListener("change", () => { applyDevice(); refresh(); });
+  document.getElementById("refresh").addEventListener("click", refresh);
+  document.getElementById("copy").addEventListener("click", () => {
+    linkInput.select();
+    navigator.clipboard.writeText(linkInput.value);
+  });
+
+  applyDevice();
+  refresh();
+</script>
+</body>
+</html>
