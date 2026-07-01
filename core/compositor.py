@@ -1,12 +1,34 @@
-import requests
 from io import BytesIO
-from PIL import Image
+from pathlib import Path
+from typing import Optional
+
+import requests
+from PIL import Image, ImageDraw, ImageFont
+
+FONTS_DIR = Path(__file__).parent / "fonts"
+FONTS = {
+    "orbitron": FONTS_DIR / "Orbitron.ttf",
+    "cinzel": FONTS_DIR / "Cinzel.ttf",
+    "spacemono": FONTS_DIR / "SpaceMono-Regular.ttf",
+    "exo2": FONTS_DIR / "Exo2.ttf",
+}
 
 
-def generate_wallpaper(width: int, height: int, nasa_url: str, top_safe: int, bottom_safe: int, scale: float = 0.80) -> BytesIO:
+def generate_wallpaper(
+    width: int,
+    height: int,
+    nasa_url: str,
+    top_safe: int,
+    bottom_safe: int,
+    scale: float = 0.80,
+    detail_lines: Optional[list] = None,
+    font: str = "sans",
+    font_size: int = 16,
+) -> BytesIO:
     """
     Spawns a pure black canvas matching device screen boundaries, resizes the
     NASA moon asset, and positions it precisely inside the designated safe zones.
+    Optionally draws small centered detail text below the moon.
     """
     # 1. Initialize pitch-black RGB canvas layer
     canvas = Image.new("RGB", (width, height), (0, 0, 0))
@@ -34,7 +56,25 @@ def generate_wallpaper(width: int, height: int, nasa_url: str, top_safe: int, bo
 
     canvas.paste(moon_resized, (paste_x, paste_y))
 
-    # 5. Pack canvas object array data directly into stream
+    # 5. Draw optional detail text centered below the moon
+    if detail_lines:
+        draw = ImageDraw.Draw(canvas)
+        font_obj = ImageFont.truetype(str(FONTS.get(font, FONTS["orbitron"])), font_size)
+
+        line_y = paste_y + target_height + int(font_size * 0.8)
+        for line in detail_lines:
+            bbox = draw.textbbox((0, 0), line, font=font_obj)
+            line_width = bbox[2] - bbox[0]
+            line_height = bbox[3] - bbox[1]
+            draw.text(
+                ((width - line_width) // 2, line_y),
+                line,
+                font=font_obj,
+                fill=(200, 200, 200),
+            )
+            line_y += int(line_height * 1.6)
+
+    # 6. Pack canvas object array data directly into stream
     output_buffer = BytesIO()
     canvas.save(output_buffer, format="PNG", optimize=True)
     output_buffer.seek(0)

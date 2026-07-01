@@ -41,6 +41,19 @@
     font-size: 0.9rem;
   }
   input[type=range] { width: 100%; accent-color: #e8e8e8; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { margin: 0; font-size: 0.85rem; color: #ccc; }
+  #customize_panel {
+    display: none;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid #2a2a2a;
+  }
+  #customize_panel.open { display: block; }
+  .detail-check { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .detail-check input { width: auto; }
+  .detail-check label { margin: 0; font-size: 0.85rem; color: #ccc; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; }
   button {
@@ -120,6 +133,48 @@
       <label for="scale">Moon size — <span id="scale_value">80</span>%</label>
       <input type="range" id="scale" min="50" max="95" value="80">
 
+      <div class="checkbox-row">
+        <input type="checkbox" id="customize_toggle">
+        <label for="customize_toggle">Customize (time, details, text style)</label>
+      </div>
+
+      <div id="customize_panel">
+        <label for="utc_offset">Your UTC offset</label>
+        <select id="utc_offset"></select>
+
+        <label for="local_hour">Choose time</label>
+        <select id="local_hour"></select>
+        <p class="hint" style="margin: 4px 0 0; text-align: left;">This is the moment the moon's appearance (and the stats below) will be rendered for — not necessarily right now.</p>
+
+        <div class="detail-check">
+          <input type="checkbox" id="show_illumination">
+          <label for="show_illumination">Show illumination %</label>
+        </div>
+        <div class="detail-check">
+          <input type="checkbox" id="show_distance">
+          <label for="show_distance">Show distance from Earth</label>
+        </div>
+        <div class="detail-check">
+          <input type="checkbox" id="show_angular_size">
+          <label for="show_angular_size">Show apparent size</label>
+        </div>
+        <div class="detail-check">
+          <input type="checkbox" id="show_age">
+          <label for="show_age">Show moon age (days)</label>
+        </div>
+
+        <label for="font">Text font</label>
+        <select id="font">
+          <option value="orbitron">Orbitron</option>
+          <option value="cinzel">Cinzel</option>
+          <option value="spacemono">Space Mono</option>
+          <option value="exo2">Exo 2</option>
+        </select>
+
+        <label for="font_size">Text size — <span id="font_size_value">16</span>px</label>
+        <input type="range" id="font_size" min="10" max="48" value="16">
+      </div>
+
       <button id="refresh">Refresh Preview</button>
     </div>
 
@@ -186,6 +241,57 @@
   const preview = document.getElementById("preview");
   const linkInput = document.getElementById("link");
 
+  const customizeToggle = document.getElementById("customize_toggle");
+  const customizePanel = document.getElementById("customize_panel");
+  const utcOffsetSel = document.getElementById("utc_offset");
+  const localHourSel = document.getElementById("local_hour");
+  const showIllumination = document.getElementById("show_illumination");
+  const showDistance = document.getElementById("show_distance");
+  const showAngularSize = document.getElementById("show_angular_size");
+  const showAge = document.getElementById("show_age");
+  const fontSel = document.getElementById("font");
+  const fontSizeInput = document.getElementById("font_size");
+  const fontSizeValue = document.getElementById("font_size_value");
+
+  // Standard UTC offsets in use worldwide, including half/quarter-hour zones.
+  const UTC_OFFSETS = [
+    -12, -11, -10, -9.5, -9, -8, -7, -6, -5, -4, -3.5, -3, -2, -1, 0,
+    1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 5.75, 6, 6.5, 7, 8, 8.75, 9, 9.5,
+    10, 10.5, 11, 12, 12.75, 13, 14,
+  ];
+
+  function formatOffset(o) {
+    const sign = o >= 0 ? "+" : "-";
+    const abs = Math.abs(o);
+    const hours = Math.floor(abs);
+    const minutes = Math.round((abs - hours) * 60);
+    return `UTC${sign}${hours}${minutes ? ":" + String(minutes).padStart(2, "0") : ""}`;
+  }
+
+  UTC_OFFSETS.forEach(o => {
+    const opt = document.createElement("option");
+    opt.value = o;
+    opt.textContent = formatOffset(o);
+    utcOffsetSel.appendChild(opt);
+  });
+
+  for (let hr = 0; hr < 24; hr++) {
+    const opt = document.createElement("option");
+    opt.value = hr;
+    const period = hr < 12 ? "AM" : "PM";
+    const display = hr % 12 === 0 ? 12 : hr % 12;
+    opt.textContent = `${display}:00 ${period}`;
+    localHourSel.appendChild(opt);
+  }
+
+  // Preselect the browser's own offset/hour as a sane starting point.
+  const browserOffset = -(new Date().getTimezoneOffset()) / 60;
+  const closestOffset = UTC_OFFSETS.reduce((a, b) =>
+    Math.abs(b - browserOffset) < Math.abs(a - browserOffset) ? b : a
+  );
+  utcOffsetSel.value = closestOffset;
+  localHourSel.value = new Date().getHours();
+
   const DEVICES = [];
   DEVICE_GROUPS.forEach(group => {
     const optgroup = document.createElement("optgroup");
@@ -217,6 +323,18 @@
       bottom_safe: bottomSafe,
       scale: (scaleInput.value / 100).toFixed(2),
     });
+
+    if (customizeToggle.checked) {
+      params.set("utc_offset", utcOffsetSel.value);
+      params.set("local_hour", localHourSel.value);
+      params.set("show_illumination", showIllumination.checked);
+      params.set("show_distance", showDistance.checked);
+      params.set("show_angular_size", showAngularSize.checked);
+      params.set("show_age", showAge.checked);
+      params.set("font", fontSel.value);
+      params.set("font_size", fontSizeInput.value);
+    }
+
     return `${window.location.origin}/api/wallpaper?${params.toString()}`;
   }
 
@@ -229,6 +347,15 @@
   deviceSel.addEventListener("change", () => { applyDevice(); refresh(); });
   scaleInput.addEventListener("input", () => { scaleValue.textContent = scaleInput.value; });
   scaleInput.addEventListener("change", refresh);
+  fontSizeInput.addEventListener("input", () => { fontSizeValue.textContent = fontSizeInput.value; });
+  fontSizeInput.addEventListener("change", refresh);
+  customizeToggle.addEventListener("change", () => {
+    customizePanel.classList.toggle("open", customizeToggle.checked);
+    refresh();
+  });
+  [utcOffsetSel, localHourSel, showIllumination, showDistance, showAngularSize, showAge, fontSel].forEach(el => {
+    el.addEventListener("change", refresh);
+  });
   document.getElementById("refresh").addEventListener("click", refresh);
   document.getElementById("copy").addEventListener("click", () => {
     linkInput.select();

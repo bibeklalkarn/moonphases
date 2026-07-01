@@ -1,19 +1,45 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import requests
 
 DIALAMOON_API = "https://svs.gsfc.nasa.gov/api/dialamoon/{timestamp}"
 
 
-def get_nasa_asset_url(orientation: str = "north") -> str:
+def resolve_target_time(utc_offset: Optional[float] = None, local_hour: Optional[int] = None) -> datetime:
     """
-    Queries NASA's Dial-A-Moon API for the current UTC hour and returns the
-    matching 730x730 frame URL (north-up or south-up per orientation).
+    Resolves the UTC timestamp to request: "now" by default, or today's date
+    at the given local hour translated from the given UTC offset.
     """
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
+    now_utc = datetime.now(timezone.utc)
+    if utc_offset is None or local_hour is None:
+        return now_utc
+
+    local_now = now_utc + timedelta(hours=utc_offset)
+    local_target = local_now.replace(hour=local_hour, minute=0, second=0, microsecond=0)
+    return local_target - timedelta(hours=utc_offset)
+
+
+def get_moon_data(orientation: str = "north", target_time: Optional[datetime] = None) -> dict:
+    """
+    Queries NASA's Dial-A-Moon API for the given UTC instant (default: now)
+    and returns the frame URL plus illumination/distance/age/apparent-size details.
+    """
+    if target_time is None:
+        target_time = datetime.now(timezone.utc)
+
+    timestamp = target_time.strftime("%Y-%m-%dT%H:%M")
     response = requests.get(DIALAMOON_API.format(timestamp=timestamp), timeout=10)
     response.raise_for_status()
     data = response.json()
 
     image_key = "image" if orientation.lower() == "north" else "su_image"
-    return data[image_key]["url"]
+
+    return {
+        "url": data[image_key]["url"],
+        "illumination": data["phase"],
+        "age_days": data["age"],
+        "distance_km": data["distance"],
+        "angular_diameter_arcsec": data["diameter"],
+        "target_time": target_time,
+    }
