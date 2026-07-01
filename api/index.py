@@ -26,6 +26,7 @@ async def get_wallpaper_endpoint(
     orientation: str = Query("north", description="North up or south up frame mapping"),
     top_safe: int = Query(380, ge=0, description="Top margin boundary to stay clear of system widgets"),
     bottom_safe: int = Query(500, ge=0, description="Bottom margin boundary to keep clear of layout dock elements"),
+    scale: float = Query(0.80, ge=0.5, le=0.95, description="Moon width as a fraction of screen width"),
 ):
     try:
         # Step 1: Calculate specific target asset path
@@ -38,6 +39,7 @@ async def get_wallpaper_endpoint(
             nasa_url=nasa_url,
             top_safe=top_safe,
             bottom_safe=bottom_safe,
+            scale=scale,
         )
 
         # Step 3: Stream raw binary asset buffer with clear caching directives

@@ -40,6 +40,7 @@
     border-radius: 6px;
     font-size: 0.9rem;
   }
+  input[type=range] { width: 100%; accent-color: #e8e8e8; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; }
   button {
@@ -116,16 +117,8 @@
         <option value="south">South up</option>
       </select>
 
-      <div class="row">
-        <div>
-          <label for="top_safe">Top safe zone</label>
-          <input type="number" id="top_safe" min="0">
-        </div>
-        <div>
-          <label for="bottom_safe">Bottom safe zone</label>
-          <input type="number" id="bottom_safe" min="0">
-        </div>
-      </div>
+      <label for="scale">Moon size — <span id="scale_value">80</span>%</label>
+      <input type="range" id="scale" min="50" max="95" value="80">
 
       <button id="refresh">Refresh Preview</button>
     </div>
@@ -141,22 +134,46 @@
   </div>
 
 <script>
-  // Physical pixel resolutions are public device specs.
-  // Safe-zone pixels are estimated as a fraction of screen height
-  // (room for clock/widgets up top, dock/widgets at bottom) —
-  // adjust per device once you see how it looks on your lock screen.
-  const DEVICES = [
-    { name: "iPhone 15 Pro Max / 16 Pro Max", w: 1290, h: 2796 },
-    { name: "iPhone 15 Pro / 16 Pro",         w: 1179, h: 2556 },
-    { name: "iPhone 15 / 16",                 w: 1170, h: 2532 },
-    { name: "iPhone SE",                      w: 750,  h: 1334 },
-    { name: "Pixel 8 Pro",                    w: 1344, h: 2992 },
-    { name: "Pixel 8",                        w: 1080, h: 2400 },
-    { name: "Galaxy S24 Ultra",               w: 1440, h: 3120 },
-    { name: "Galaxy S24",                     w: 1080, h: 2340 },
-    { name: "Custom",                         w: 1179, h: 2556 },
+  // Physical pixel resolutions are public device specs, grouped by
+  // manufacturer (alphabetical) and listed newest-first within each.
+  const DEVICE_GROUPS = [
+    { company: "Apple", devices: [
+      { name: "iPhone 15 Pro Max / 16 Pro Max", w: 1290, h: 2796 },
+      { name: "iPhone 15 Pro / 16 Pro",         w: 1179, h: 2556 },
+      { name: "iPhone 15 / 16",                 w: 1170, h: 2532 },
+      { name: "iPhone 14 Pro Max",              w: 1290, h: 2796 },
+      { name: "iPhone 14 Pro",                  w: 1179, h: 2556 },
+      { name: "iPhone 13 mini",                 w: 1080, h: 2340 },
+      { name: "iPhone SE",                      w: 750,  h: 1334 },
+    ]},
+    { company: "Google", devices: [
+      { name: "Pixel 9 Pro XL",                 w: 1344, h: 2992 },
+      { name: "Pixel 9 Pro",                    w: 1280, h: 2856 },
+      { name: "Pixel 9",                        w: 1080, h: 2424 },
+      { name: "Pixel 8 Pro",                    w: 1344, h: 2992 },
+      { name: "Pixel 8",                        w: 1080, h: 2400 },
+    ]},
+    { company: "OnePlus", devices: [
+      { name: "OnePlus 12",                     w: 1440, h: 3168 },
+      { name: "OnePlus 11",                     w: 1440, h: 3216 },
+    ]},
+    { company: "Samsung", devices: [
+      { name: "Galaxy S24 Ultra",               w: 1440, h: 3120 },
+      { name: "Galaxy S24+",                    w: 1440, h: 3088 },
+      { name: "Galaxy S24",                     w: 1080, h: 2340 },
+      { name: "Galaxy S23 Ultra",               w: 1440, h: 3088 },
+    ]},
+    { company: "Xiaomi", devices: [
+      { name: "Xiaomi 14 Ultra",                w: 1440, h: 3200 },
+      { name: "Xiaomi 14",                      w: 1200, h: 2670 },
+    ]},
+    { company: "Other", devices: [
+      { name: "Custom",                         w: 1179, h: 2556 },
+    ]},
   ];
 
+  // Safe zones aren't user-facing — auto-derived as a fraction of screen
+  // height (room for clock/widgets up top, dock/widgets at bottom).
   const TOP_FRACTION = 0.15;
   const BOTTOM_FRACTION = 0.20;
 
@@ -164,33 +181,41 @@
   const wInput = document.getElementById("w");
   const hInput = document.getElementById("h");
   const orientationSel = document.getElementById("orientation");
-  const topInput = document.getElementById("top_safe");
-  const bottomInput = document.getElementById("bottom_safe");
+  const scaleInput = document.getElementById("scale");
+  const scaleValue = document.getElementById("scale_value");
   const preview = document.getElementById("preview");
   const linkInput = document.getElementById("link");
 
-  DEVICES.forEach((d, i) => {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = d.name;
-    deviceSel.appendChild(opt);
+  const DEVICES = [];
+  DEVICE_GROUPS.forEach(group => {
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = group.company;
+    group.devices.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = DEVICES.length;
+      opt.textContent = d.name;
+      optgroup.appendChild(opt);
+      DEVICES.push(d);
+    });
+    deviceSel.appendChild(optgroup);
   });
 
   function applyDevice() {
     const d = DEVICES[deviceSel.value];
     wInput.value = d.w;
     hInput.value = d.h;
-    topInput.value = Math.round(d.h * TOP_FRACTION);
-    bottomInput.value = Math.round(d.h * BOTTOM_FRACTION);
   }
 
   function buildUrl() {
+    const topSafe = Math.round(hInput.value * TOP_FRACTION);
+    const bottomSafe = Math.round(hInput.value * BOTTOM_FRACTION);
     const params = new URLSearchParams({
       w: wInput.value,
       h: hInput.value,
       orientation: orientationSel.value,
-      top_safe: topInput.value,
-      bottom_safe: bottomInput.value,
+      top_safe: topSafe,
+      bottom_safe: bottomSafe,
+      scale: (scaleInput.value / 100).toFixed(2),
     });
     return `${window.location.origin}/api/wallpaper?${params.toString()}`;
   }
@@ -202,6 +227,8 @@
   }
 
   deviceSel.addEventListener("change", () => { applyDevice(); refresh(); });
+  scaleInput.addEventListener("input", () => { scaleValue.textContent = scaleInput.value; });
+  scaleInput.addEventListener("change", refresh);
   document.getElementById("refresh").addEventListener("click", refresh);
   document.getElementById("copy").addEventListener("click", () => {
     linkInput.select();

@@ -3,7 +3,7 @@ from io import BytesIO
 from PIL import Image
 
 
-def generate_wallpaper(width: int, height: int, nasa_url: str, top_safe: int, bottom_safe: int) -> BytesIO:
+def generate_wallpaper(width: int, height: int, nasa_url: str, top_safe: int, bottom_safe: int, scale: float = 0.80) -> BytesIO:
     """
     Spawns a pure black canvas matching device screen boundaries, resizes the
     NASA moon asset, and positions it precisely inside the designated safe zones.
@@ -17,7 +17,7 @@ def generate_wallpaper(width: int, height: int, nasa_url: str, top_safe: int, bo
     moon_img = Image.open(BytesIO(response.content)).convert("RGB")
 
     # 3. Scales moon sphere relative to the hardware screen width
-    target_width = int(width * 0.75)  # Scale to fit 75% of screen width
+    target_width = int(width * scale)
     aspect_ratio = moon_img.height / moon_img.width
     target_height = int(target_width * aspect_ratio)
 
