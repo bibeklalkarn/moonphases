@@ -12,16 +12,11 @@ at the URL and your lock screen always shows the Moon as it looks right now.
 - Four fonts, adjustable text and Moon size
 - A web page to build and preview your link, and a plain HTTP API for everything else
 
-## Quick start
+## Try it
 
-```bash
-git clone https://github.com/bibeklalkarn/moonphases.git && cd moonphases
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn api.index:app --reload
-```
-
-Open <http://localhost:8000>, choose your device, and copy the generated link.
+Open the hosted web page, choose your device, adjust the options, and copy the
+generated link. That link is all you need; there's nothing to install. See
+[Using it on your phone](#using-it-on-your-phone) below.
 
 ## Using it on your phone
 
@@ -94,7 +89,20 @@ core/
 vercel.json         Routes every request to the FastAPI app
 ```
 
-## Deploy to Vercel
+## Development
+
+Only needed if you want to change the code or host your own copy.
+
+```bash
+git clone https://github.com/bibeklalkarn/moonphases.git && cd moonphases
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn api.index:app --reload
+```
+
+Then open <http://localhost:8000>.
+
+### Host your own on Vercel
 
 ```bash
 npm i -g vercel
@@ -102,7 +110,9 @@ vercel --prod
 ```
 
 `vercel.json` already rewrites all paths to `api/index.py`, and dependencies
-come from `requirements.txt`. There is no database or configuration to set up.
+come from `requirements.txt`. There is no database, API key or configuration to
+set up. The `.vercel/` folder the CLI creates holds your account's project IDs,
+so it's git-ignored; don't commit it.
 
 ## License
 
