@@ -4,6 +4,8 @@ from typing import Optional
 
 import requests
 
+from core.astronomy import illumination_percent, moon_position
+
 DIALAMOON_API = "https://svs.gsfc.nasa.gov/api/dialamoon/{timestamp}"
 
 
@@ -29,6 +31,13 @@ def _fetch_dialamoon(timestamp: str) -> dict:
     return response.json()
 
 
+def _number(value, fallback):
+    """Returns value if it is a real number, otherwise computes the fallback."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return fallback()
+
+
 def get_moon_data(orientation: str = "north", target_time: Optional[datetime] = None) -> dict:
     """
     Queries NASA's Dial-A-Moon API for the given UTC instant (default: now)
@@ -44,9 +53,10 @@ def get_moon_data(orientation: str = "north", target_time: Optional[datetime] = 
 
     return {
         "url": data[image_key]["url"],
-        "illumination": data["phase"],
+        # Prefer NASA's values; fall back to our own ephemeris if a field is missing.
+        "illumination": _number(data.get("phase"), lambda: illumination_percent(target_time)),
         "age_days": data["age"],
-        "distance_km": data["distance"],
+        "distance_km": _number(data.get("distance"), lambda: moon_position(target_time).distance_km),
         "angular_diameter_arcsec": data["diameter"],
         "target_time": target_time,
     }

@@ -163,6 +163,23 @@
           <label for="show_age">Show moon age (days)</label>
         </div>
 
+        <div class="detail-check">
+          <input type="checkbox" id="show_moonrise">
+          <label for="show_moonrise">Show moonrise time</label>
+        </div>
+        <div class="detail-check">
+          <input type="checkbox" id="show_moonset">
+          <label for="show_moonset">Show moonset time</label>
+        </div>
+        <div id="location_row" style="display:none">
+          <label for="lat">Your location (for moonrise / moonset)</label>
+          <div style="display:flex;gap:8px">
+            <input type="number" id="lat" step="any" min="-90" max="90" placeholder="Latitude">
+            <input type="number" id="lon" step="any" min="-180" max="180" placeholder="Longitude">
+          </div>
+          <button type="button" id="locate" style="margin-top:8px">Use my location</button>
+        </div>
+
         <label for="font">Text font</label>
         <select id="font">
           <option value="orbitron">Orbitron</option>
@@ -249,6 +266,11 @@
   const showDistance = document.getElementById("show_distance");
   const showAngularSize = document.getElementById("show_angular_size");
   const showAge = document.getElementById("show_age");
+  const showMoonrise = document.getElementById("show_moonrise");
+  const showMoonset = document.getElementById("show_moonset");
+  const locationRow = document.getElementById("location_row");
+  const latInput = document.getElementById("lat");
+  const lonInput = document.getElementById("lon");
   const fontSel = document.getElementById("font");
   const fontSizeInput = document.getElementById("font_size");
   const fontSizeValue = document.getElementById("font_size_value");
@@ -331,6 +353,13 @@
       params.set("show_distance", showDistance.checked);
       params.set("show_angular_size", showAngularSize.checked);
       params.set("show_age", showAge.checked);
+      const wantsSun = showMoonrise.checked || showMoonset.checked;
+      if (wantsSun && latInput.value !== "" && lonInput.value !== "") {
+        params.set("show_moonrise", showMoonrise.checked);
+        params.set("show_moonset", showMoonset.checked);
+        params.set("lat", latInput.value);
+        params.set("lon", lonInput.value);
+      }
       params.set("font", fontSel.value);
       params.set("font_size", fontSizeInput.value);
     }
@@ -353,8 +382,20 @@
     customizePanel.classList.toggle("open", customizeToggle.checked);
     refresh();
   });
-  [utcOffsetSel, localHourSel, showIllumination, showDistance, showAngularSize, showAge, fontSel].forEach(el => {
-    el.addEventListener("change", refresh);
+  [utcOffsetSel, localHourSel, showIllumination, showDistance, showAngularSize, showAge, fontSel,
+   showMoonrise, showMoonset, latInput, lonInput].forEach(el => {
+    el.addEventListener("change", () => {
+      locationRow.style.display = (showMoonrise.checked || showMoonset.checked) ? "block" : "none";
+      refresh();
+    });
+  });
+  document.getElementById("locate").addEventListener("click", () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(pos => {
+      latInput.value = pos.coords.latitude.toFixed(4);
+      lonInput.value = pos.coords.longitude.toFixed(4);
+      refresh();
+    });
   });
   document.getElementById("refresh").addEventListener("click", refresh);
   document.getElementById("copy").addEventListener("click", () => {
