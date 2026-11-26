@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Optional
 
 import requests
@@ -20,6 +21,14 @@ def resolve_target_time(utc_offset: Optional[float] = None, local_hour: Optional
     return local_target - timedelta(hours=utc_offset)
 
 
+@lru_cache(maxsize=64)
+def _fetch_dialamoon(timestamp: str) -> dict:
+    """Fetches Dial-A-Moon data for a minute-resolution timestamp; cached per instance."""
+    response = requests.get(DIALAMOON_API.format(timestamp=timestamp), timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+
 def get_moon_data(orientation: str = "north", target_time: Optional[datetime] = None) -> dict:
     """
     Queries NASA's Dial-A-Moon API for the given UTC instant (default: now)
@@ -29,9 +38,7 @@ def get_moon_data(orientation: str = "north", target_time: Optional[datetime] = 
         target_time = datetime.now(timezone.utc)
 
     timestamp = target_time.strftime("%Y-%m-%dT%H:%M")
-    response = requests.get(DIALAMOON_API.format(timestamp=timestamp), timeout=10)
-    response.raise_for_status()
-    data = response.json()
+    data = _fetch_dialamoon(timestamp)
 
     image_key = "image" if orientation.lower() == "north" else "su_image"
 

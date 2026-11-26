@@ -1,11 +1,16 @@
+import logging
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
+
+import requests
 
 from fastapi import FastAPI, Query, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from core.calculator import get_moon_data, resolve_target_time
 from core.compositor import generate_wallpaper
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -21,10 +26,10 @@ async def index_page():
 
 
 @app.get("/api/wallpaper")
-async def get_wallpaper_endpoint(
+def get_wallpaper_endpoint(
     w: int = Query(1179, ge=1, le=4096, description="Screen width in pixels"),
     h: int = Query(2556, ge=1, le=4096, description="Screen height in pixels"),
-    orientation: str = Query("north", description="North up or south up frame mapping"),
+    orientation: Literal["north", "south"] = Query("north", description="North up or south up frame mapping"),
     top_safe: int = Query(380, ge=0, description="Top margin boundary to stay clear of system widgets"),
     bottom_safe: int = Query(500, ge=0, description="Bottom margin boundary to keep clear of layout dock elements"),
     scale: float = Query(0.80, ge=0.5, le=0.95, description="Moon width as a fraction of screen width"),
@@ -34,7 +39,7 @@ async def get_wallpaper_endpoint(
     show_distance: bool = Query(False, description="Draw distance from Earth below the moon"),
     show_angular_size: bool = Query(False, description="Draw apparent angular size below the moon"),
     show_age: bool = Query(False, description="Draw moon age (days into lunar cycle) below the moon"),
-    font: str = Query("orbitron", description="Detail text font: orbitron, cinzel, spacemono, or exo2"),
+    font: Literal["orbitron", "cinzel", "spacemono", "exo2"] = Query("orbitron", description="Detail text font: orbitron, cinzel, spacemono, or exo2"),
     font_size: int = Query(16, ge=10, le=48, description="Detail text font size in pixels"),
 ):
     try:
@@ -74,5 +79,9 @@ async def get_wallpaper_endpoint(
                 "Cache-Control": "public, max-age=1800, stale-while-revalidate=600"
             },
         )
-    except Exception as e:
-        return Response(content=f"Error generating dynamic asset frame: {str(e)}", status_code=500)
+    except requests.RequestException:
+        logger.exception("Upstream NASA request failed")
+        return Response(content="Could not reach NASA's moon image service. Try again shortly.", status_code=502)
+    except Exception:
+        logger.exception("Wallpaper generation failed")
+        return Response(content="Error generating wallpaper.", status_code=500)

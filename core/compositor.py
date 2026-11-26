@@ -1,3 +1,4 @@
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
@@ -12,6 +13,15 @@ FONTS = {
     "spacemono": FONTS_DIR / "SpaceMono-Regular.ttf",
     "exo2": FONTS_DIR / "Exo2.ttf",
 }
+DEFAULT_FONT = "orbitron"
+
+
+@lru_cache(maxsize=16)
+def _fetch_image_bytes(url: str) -> bytes:
+    """Downloads a moon frame; cached so warm instances skip repeat downloads."""
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.content
 
 
 def generate_wallpaper(
@@ -22,7 +32,7 @@ def generate_wallpaper(
     bottom_safe: int,
     scale: float = 0.80,
     detail_lines: Optional[list] = None,
-    font: str = "sans",
+    font: str = DEFAULT_FONT,
     font_size: int = 16,
 ) -> BytesIO:
     """
@@ -34,9 +44,7 @@ def generate_wallpaper(
     canvas = Image.new("RGB", (width, height), (0, 0, 0))
 
     # 2. Ingest the static hourly moon frame from NASA server
-    response = requests.get(nasa_url, timeout=10)
-    response.raise_for_status()
-    moon_img = Image.open(BytesIO(response.content)).convert("RGB")
+    moon_img = Image.open(BytesIO(_fetch_image_bytes(nasa_url))).convert("RGB")
 
     # 3. Scales moon sphere relative to the hardware screen width
     target_width = int(width * scale)
@@ -59,7 +67,7 @@ def generate_wallpaper(
     # 5. Draw optional detail text centered below the moon
     if detail_lines:
         draw = ImageDraw.Draw(canvas)
-        font_obj = ImageFont.truetype(str(FONTS.get(font, FONTS["orbitron"])), font_size)
+        font_obj = ImageFont.truetype(str(FONTS.get(font, FONTS[DEFAULT_FONT])), font_size)
 
         line_y = paste_y + target_height + int(font_size * 0.8)
         for line in detail_lines:
