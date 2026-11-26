@@ -14,7 +14,9 @@ at the URL and your lock screen always shows the Moon as it looks right now.
 
 ## Try it
 
-Open the hosted web page, choose your device, adjust the options, and copy the
+**Live app: <https://moonphases-one.vercel.app/>**
+
+Open it, choose your device, adjust the options, and copy the
 generated link. That link is all you need; there's nothing to install. See
 [Using it on your phone](#using-it-on-your-phone) below.
 
