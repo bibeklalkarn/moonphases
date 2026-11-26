@@ -74,14 +74,21 @@ def get_wallpaper_endpoint(
         if show_age:
             detail_lines.append(f"Age: {moon_data['age_days']:.1f} days")
 
-        if (show_moonrise or show_moonset) and lat is not None and lon is not None:
-            offset = utc_offset or 0.0
-            local_day = (target_time + timedelta(hours=offset)).date()
-            rs = moon_rise_set(local_day, lat, lon, offset)
-            if show_moonrise:
-                detail_lines.append(f"Moonrise: {_fmt_event(rs.rise, rs.always_up, rs.always_down)}")
-            if show_moonset:
-                detail_lines.append(f"Moonset: {_fmt_event(rs.set, rs.always_up, rs.always_down)}")
+        if show_moonrise or show_moonset:
+            if lat is None or lon is None:
+                # Tell the user why instead of silently drawing nothing.
+                if show_moonrise:
+                    detail_lines.append("Moonrise: set location")
+                if show_moonset:
+                    detail_lines.append("Moonset: set location")
+            else:
+                offset = utc_offset or 0.0
+                local_day = (target_time + timedelta(hours=offset)).date()
+                rs = moon_rise_set(local_day, lat, lon, offset)
+                if show_moonrise:
+                    detail_lines.append(f"Moonrise: {_fmt_event(rs.rise, rs.always_up, rs.always_down)}")
+                if show_moonset:
+                    detail_lines.append(f"Moonset: {_fmt_event(rs.set, rs.always_up, rs.always_down)}")
 
         # Step 3: Render composite background image payload
         image_stream = generate_wallpaper(

@@ -178,6 +178,7 @@
             <input type="number" id="lon" step="any" min="-180" max="180" placeholder="Longitude">
           </div>
           <button type="button" id="locate" style="margin-top:8px">Use my location</button>
+          <p class="hint" id="location_hint" style="margin: 4px 0 0; text-align: left;">Moonrise and moonset depend on where you are. Allow location access, or type your latitude and longitude.</p>
         </div>
 
         <label for="font">Text font</label>
@@ -353,10 +354,9 @@
       params.set("show_distance", showDistance.checked);
       params.set("show_angular_size", showAngularSize.checked);
       params.set("show_age", showAge.checked);
-      const wantsSun = showMoonrise.checked || showMoonset.checked;
-      if (wantsSun && latInput.value !== "" && lonInput.value !== "") {
-        params.set("show_moonrise", showMoonrise.checked);
-        params.set("show_moonset", showMoonset.checked);
+      params.set("show_moonrise", showMoonrise.checked);
+      params.set("show_moonset", showMoonset.checked);
+      if (latInput.value !== "" && lonInput.value !== "") {
         params.set("lat", latInput.value);
         params.set("lon", lonInput.value);
       }
@@ -382,21 +382,37 @@
     customizePanel.classList.toggle("open", customizeToggle.checked);
     refresh();
   });
-  [utcOffsetSel, localHourSel, showIllumination, showDistance, showAngularSize, showAge, fontSel,
-   showMoonrise, showMoonset, latInput, lonInput].forEach(el => {
-    el.addEventListener("change", () => {
-      locationRow.style.display = (showMoonrise.checked || showMoonset.checked) ? "block" : "none";
-      refresh();
-    });
-  });
-  document.getElementById("locate").addEventListener("click", () => {
-    if (!navigator.geolocation) return;
+  const locationHint = document.getElementById("location_hint");
+
+  function locate() {
+    if (!navigator.geolocation) {
+      locationHint.textContent = "Your browser can't share its location. Type your latitude and longitude.";
+      return;
+    }
+    locationHint.textContent = "Finding your location...";
     navigator.geolocation.getCurrentPosition(pos => {
       latInput.value = pos.coords.latitude.toFixed(4);
       lonInput.value = pos.coords.longitude.toFixed(4);
+      locationHint.textContent = "Location set. You can edit the numbers if you want a different place.";
+      refresh();
+    }, () => {
+      locationHint.textContent = "Location blocked. Type your latitude and longitude instead.";
+    });
+  }
+
+  [utcOffsetSel, localHourSel, showIllumination, showDistance, showAngularSize, showAge, fontSel,
+   showMoonrise, showMoonset, latInput, lonInput].forEach(el => {
+    el.addEventListener("change", () => {
+      const wantsSun = showMoonrise.checked || showMoonset.checked;
+      locationRow.style.display = wantsSun ? "block" : "none";
+      if (wantsSun && latInput.value === "" && lonInput.value === "" &&
+          (el === showMoonrise || el === showMoonset)) {
+        locate();
+      }
       refresh();
     });
   });
+  document.getElementById("locate").addEventListener("click", locate);
   document.getElementById("refresh").addEventListener("click", refresh);
   document.getElementById("copy").addEventListener("click", () => {
     linkInput.select();
