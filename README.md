@@ -15,7 +15,7 @@ at the URL and your lock screen always shows the Moon as it looks right now.
 ## Quick start
 
 ```bash
-git clone <this-repo> && cd moonphases
+git clone https://github.com/bibeklalkarn/moonphases.git && cd moonphases
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn api.index:app --reload
@@ -103,6 +103,10 @@ vercel --prod
 
 `vercel.json` already rewrites all paths to `api/index.py`, and dependencies
 come from `requirements.txt`. There is no database or configuration to set up.
+
+## License
+
+[MIT](LICENSE). The bundled fonts keep their own SIL Open Font License (see `core/fonts/licenses/`).
 
 ## Credits
 
